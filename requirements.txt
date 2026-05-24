@@ -7,4 +7,3 @@ Sastrawi==1.0.1
 matplotlib==3.10.9
 seaborn==0.13.2
 wordcloud==1.9.6
-joblib==1.5.3

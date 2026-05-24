@@ -1,8 +1,8 @@
 # Proyek Analisis Sentimen — Ulasan Aplikasi Gojek (Google Play Store)
 
-Submission **Analisis Sentimen** Dicoding. Proyek ini membangun pipeline lengkap analisis
-sentimen Bahasa Indonesia: **scraping mandiri → preprocessing → pelabelan otomatis (lexicon) →
-ekstraksi fitur → 3 skema pelatihan (termasuk deep learning) → inference**.
+Submission **Analisis Sentimen** Dicoding. Pipeline: **scraping mandiri → preprocessing →
+pelabelan otomatis (lexicon) → ekstraksi fitur → 3 skema pelatihan (termasuk deep learning) →
+inference**.
 
 - **Topik:** ulasan aplikasi **Gojek** (`com.gojek.app`).
 - **Sumber data:** Google Play Store (API publik `google-play-scraper`, tanpa login).
@@ -12,67 +12,51 @@ ekstraksi fitur → 3 skema pelatihan (termasuk deep learning) → inference**.
 
 | Skema | Algoritma | Ekstraksi Fitur | Split | Train Acc | Test Acc |
 |-------|-----------|-----------------|-------|-----------|----------|
-| 1 | **BiLSTM** (Deep Learning, PyTorch) | Word Embedding | 80/20 | 97.03% | **86.05%** |
-| 2 | **SVM** (LinearSVC) | TF-IDF | 80/20 | 99.21% | **88.09%** |
-| 3 | **Logistic Regression** | TF-IDF | 70/30 | 98.09% | **86.32%** |
+| 1 | **BiLSTM** (Deep Learning, PyTorch) | Word Embedding | 80/20 | 98.90% | **85.95%** |
+| 2 | **SVM** (LinearSVC) | TF-IDF | 80/20 | 99.21% | **87.28%** |
+| 3 | **Logistic Regression** | TF-IDF | 70/30 | 98.15% | **85.90%** |
 
-Ketiga skema memenuhi kriteria utama Dicoding (**akurasi testing ≥ 85%**), dengan **3 kombinasi
-berbeda** (variasi algoritma, ekstraksi fitur, dan pembagian data).
+Ketiga skema memenuhi kriteria utama Dicoding (**akurasi testing ≥ 85%**) dengan **3 kombinasi
+berbeda** (algoritma, ekstraksi fitur, pembagian data).
 
-## Struktur Berkas
+## Berkas Submission (4 file utama)
 
 | Berkas | Keterangan |
 |--------|-----------|
-| `scraping.ipynb` / `scraping.py` | Kode & proses scraping ulasan Gojek dari Play Store |
-| `notebook.ipynb` | Notebook pelatihan: EDA, preprocessing, pelabelan, 3 skema, inference (sudah dijalankan, output tersimpan) |
-| `dataset.csv` | Dataset hasil scraping yang sudah diberi label (10.572 sampel) |
+| `scraping.ipynb` | **Hanya** proses pengambilan data mentah (raw) ulasan Gojek dari Play Store → `gojek_reviews_raw.csv` |
+| `notebook.ipynb` | Notebook pelatihan: pembersihan + dedup data, preprocessing, pelabelan lexicon, 3 skema, inference (sudah dijalankan, output tersimpan) |
 | `requirements.txt` | Daftar dependensi |
-| `data/gojek_reviews_raw.csv` | Data mentah hasil scraping (10.928 ulasan unik) |
-| `lexicon/` | Lexicon InSet (`positive`/`negative`) + kamus slang (cache, agar reproducible) |
-| `models/` | Artefak model terlatih (BiLSTM, SVM, Logistic Regression, vectorizer) |
-| `pyproject.toml`, `uv.lock` | Konfigurasi environment (opsional, untuk pengguna `uv`) |
+| `gojek_reviews_raw.csv` | Dataset hasil scraping (15.000 baris mentah) |
 
-## Metodologi
+> Lexicon (InSet & kamus slang) **diunduh otomatis dari sumbernya saat runtime** di dalam
+> `notebook.ipynb`, sehingga tidak perlu disertakan sebagai file terpisah.
 
-1. **Scraping** — `google-play-scraper` dengan paginasi `continuation_token`; dedup & buang
-   ulasan kosong/terlalu pendek → **10.928** ulasan unik (≥ 10.000).
-2. **Preprocessing** — case folding, pembersihan (URL/mention/hashtag/karakter non-huruf),
-   normalisasi *slang* (kamus *colloquial-indonesian-lexicon*), penghapusan *stopword* (Sastrawi).
-   Kata **negasi** dipertahankan untuk penanganan negasi.
-3. **Pelabelan otomatis (Lexicon InSet)** — skor sentimen = jumlah bobot kata; polaritas dibalik
-   bila ada negasi. Lexicon **diperkaya** untuk domain ulasan aplikasi (menambah/mengoreksi kata
-   sentimen umum, serta menetralkan kata domain yang netral seperti *aplikasi*, *driver*, *versi*).
-   Kelas: *netral* = ulasan tanpa kata opini; *positif/negatif* berdasarkan tanda skor; ulasan
-   ambigu (skor tepat 0 padahal mengandung opini) dibuang.
-4. **Ekstraksi fitur** — TF-IDF (uni+bigram) untuk model klasik; *tokenizer + padding + embedding*
-   untuk BiLSTM.
-5. **Pelatihan** — 3 skema (lihat tabel). BiLSTM memakai *dropout*, *weight decay*, dan
-   *early stopping* berbasis akurasi validasi.
-6. **Inference** — prediksi *ensemble* (majority voting BiLSTM + SVM + Logistic Regression)
-   menghasilkan output **kategorikal** (negatif/netral/positif). Bukti inferensi tersedia pada
-   output `notebook.ipynb`.
+## Alur Singkat
+
+1. **`scraping.ipynb`** — `google-play-scraper` (paginasi `continuation_token`), menyimpan data
+   mentah apa adanya tanpa pembersihan.
+2. **`notebook.ipynb`**:
+   - Muat `gojek_reviews_raw.csv` → pembersihan & deduplikasi (≥ 10.000 sampel unik).
+   - Preprocessing: case folding, normalisasi slang, hapus stopword (kata negasi dipertahankan).
+   - Pelabelan **Lexicon InSet** (diunduh runtime) + augmentasi/adaptasi domain; penanganan negasi;
+     kelas *netral* = ulasan tanpa kata opini.
+   - Ekstraksi fitur: TF-IDF (model klasik) & embedding (BiLSTM).
+   - 3 skema pelatihan + perbandingan.
+   - **Inference** ensemble (majority voting) → output kategorikal.
 
 ## Cara Menjalankan
 
-Menggunakan **uv** (direkomendasikan):
-
-```bash
-uv sync                      # buat environment dari pyproject.toml / uv.lock
-uv run jupyter lab           # buka & jalankan scraping.ipynb lalu notebook.ipynb
-```
-
-Atau dengan `pip` biasa:
-
 ```bash
 pip install -r requirements.txt
-jupyter lab
+jupyter lab          # jalankan scraping.ipynb (opsional, data sudah tersedia) lalu notebook.ipynb
 ```
 
-> Catatan: `notebook.ipynb` sudah dijalankan dan seluruh output (akurasi, confusion matrix,
-> dan hasil inference) tersimpan, sehingga tidak perlu dijalankan ulang untuk meninjau hasil.
+> `notebook.ipynb` sudah dijalankan dan seluruh output (akurasi, confusion matrix, inference)
+> tersimpan, sehingga tidak perlu dijalankan ulang untuk meninjau hasil. Menjalankan notebook
+> memerlukan koneksi internet untuk mengunduh lexicon.
 
 ## Catatan Etika
 
 Data diambil melalui API publik `google-play-scraper` (tanpa kredensial/login), hanya berupa
-ulasan publik aplikasi Gojek, dan digunakan untuk tujuan pembelajaran. Topik bersifat netral
-dan tidak mengandung isu sensitif, sesuai pedoman Dicoding.
+ulasan publik aplikasi Gojek, untuk tujuan pembelajaran. Topik netral dan tidak mengandung isu
+sensitif, sesuai pedoman Dicoding.
